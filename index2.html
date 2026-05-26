@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>新春！ホロライブ五目並べ最弱王決定戦</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --board-color: #d4a74c;
+            --line-color: #2c3e50;
+        }
+
+        body {
+            background: #1a1c2c;
+            color: #ecf0f1;
+            font-family: "Microsoft JhengHei", sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 10px;
+            overflow: hidden;
+            transition: background 0.8s ease;
+        }
+
+        /* ---------------- 標題強化樣式 ---------------- */
+        .main-title-container {
+            background: rgba(0, 0, 0, 0.4);
+            padding: 10px 30px;
+            border-radius: 50px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(4px);
+        }
+
+        .text-stroke-white {
+            -webkit-text-stroke: 1.5px white;
+            text-shadow: 3px 3px 0px rgba(0,0,0,0.8);
+        }
+
+        .text-stroke-black {
+            -webkit-text-stroke: 1px black;
+            text-shadow: 2px 2px 0px rgba(0,0,0,0.5);
+        }
+
+        /* ---------------- 背景效果 ---------------- */
+        #bg-effects {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .petal {
+            position: absolute;
+            background: #ffb7c5;
+            border-radius: 150% 0 150% 0;
+            opacity: 0.8;
+            animation: petalFall linear infinite;
+        }
+        @keyframes petalFall {
+            0% { transform: translateY(-10vh) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+        }
+
+        .rain {
+            position: absolute;
+            width: 1px;
+            height: 40px;
+            background: rgba(255, 255, 255, 0.3);
+            animation: rainFall linear infinite;
+        }
+        @keyframes rainFall { to { transform: translateY(110vh); } }
+
+        .star {
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+            animation: twinkle var(--d) ease-in-out infinite;
+        }
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.3; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.2); }
+        }
+        .shooting-star {
+            position: absolute;
+            width: 2px;
+            height: 2px;
+            background: white;
+            box-shadow: 0 0 10px 2px white;
+            animation: shoot 2.5s linear infinite;
+            opacity: 0;
+        }
+        @keyframes shoot {
+            0% { transform: translate(100vw, 0) rotate(-45deg); opacity: 1; }
+            100% { transform: translate(-10vw, 110vh) rotate(-45deg); opacity: 0; }
+        }
+
+        /* ---------------- 煙火特效 ---------------- */
+        .firework {
+            position: absolute;
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 1000;
+            animation: explode 1.5s ease-out forwards;
+        }
+        @keyframes explode {
+            0% { transform: translate(0, 0) scale(1); opacity: 1; }
+            100% { transform: translate(var(--tx), var(--ty)) scale(0.1); opacity: 0; }
+        }
+
+        body.bg-miko { background: linear-gradient(135deg, #ff9a9e 0%, #fad0c4 100%); }
+        body.bg-ui { background: linear-gradient(180deg, #2c3e50 0%, #4ca1af 100%); }
+        body.bg-suisei { background: linear-gradient(135deg, #0f2027 0%, #2c5364 100%); }
+
+        /* ---------------- 棋盤樣式 ---------------- */
+        .board-container { perspective: 1000px; z-index: 5; }
+        .board-wrapper {
+            position: relative;
+            background-color: var(--board-color);
+            padding: 20px;
+            border-radius: 4px;
+            box-shadow: 0 10px 50px rgba(0,0,0,0.8);
+            user-select: none;
+            transition: transform 1s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+        .board {
+            display: grid;
+            grid-template-columns: repeat(14, 28px);
+            grid-template-rows: repeat(14, 28px);
+            border: 1px solid var(--line-color);
+        }
+        .grid-cell { width: 28px; height: 28px; border: 1px solid var(--line-color); box-sizing: border-box; }
+        .click-layer { position: absolute; top: 6px; left: 6px; width: calc(15 * 28px); height: calc(15 * 28px); }
+        .intersection {
+            position: absolute; width: 28px; height: 28px;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; z-index: 20;
+        }
+        .piece { width: 24px; height: 24px; border-radius: 50%; z-index: 30; box-shadow: 0 2px 4px rgba(0,0,0,0.4); position: relative; }
+        .piece.black { background: radial-gradient(circle at 30% 30%, #444, #000); }
+        .piece.white { background: radial-gradient(circle at 30% 30%, #fff, #bdc3c7); }
+        
+        .ghost-piece {
+            position: absolute; width: 28px; height: 28px;
+            border: 3px solid currentColor; border-radius: 50%;
+            opacity: 0.6; animation: pulse 0.4s infinite alternate;
+            z-index: 25; pointer-events: none;
+            transition: all var(--speed) ease-in-out; 
+            display: flex; align-items: center; justify-content: center;
+        }
+        @keyframes pulse { from { transform: scale(0.85); opacity: 0.4; } to { transform: scale(1.05); opacity: 0.8; } }
+
+        .last-move-marker { width: 6px; height: 6px; background-color: #ff4757; border-radius: 50%; position: absolute; }
+
+        .emoji-particle {
+            position: absolute; pointer-events: none; z-index: 100;
+            animation: particleAnim 0.8s ease-out forwards; font-size: 24px;
+        }
+        @keyframes particleAnim {
+            0% { transform: translate(-50%, -50%) scale(0.5); opacity: 1; }
+            100% { transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) scale(1.5); opacity: 0; }
+        }
+
+        .status-bar {
+            width: 100%; max-width: 460px;
+            display: flex; justify-content: space-between; align-items: center;
+            background: rgba(42, 45, 62, 0.95); padding: 12px 20px;
+            border-radius: 12px; margin-bottom: 15px;
+            z-index: 10; border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .char-card {
+            background: rgba(42, 45, 62, 0.8); padding: 12px; border-radius: 16px;
+            cursor: pointer; border: 3px solid transparent; transition: all 0.3s;
+            text-align: center;
+        }
+        .char-card.active { border-color: #f1c40f; background: rgba(61, 66, 94, 0.95); transform: scale(1.05); }
+
+        #modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.85);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+        }
+        .modal-content {
+            background: #2d3436;
+            padding: 40px;
+            border-radius: 24px;
+            text-align: center;
+            border: 4px solid #f1c40f;
+            box-shadow: 0 0 50px rgba(0,0,0,0.5);
+            max-width: 90%;
+            width: 400px;
+        }
+    </style>
+</head>
+<body class="bg-miko">
+
+    <div id="bg-effects"></div>
+
+    <!-- 優化後的日文標題 -->
+    <div class="text-center z-10 drop-shadow-2xl mb-4 main-title-container">
+        <h1 class="text-3xl font-black leading-tight italic tracking-tighter">
+            <span class="text-red-500 text-stroke-white text-4xl block mb-1">新春！</span>
+            <span class="text-white text-stroke-black">ホロライブ</span>
+            <span class="text-yellow-400 text-stroke-black">五目並べ最弱王決定戦</span>
+        </h1>
+    </div>
+
+    <div class="character-select flex gap-4 mb-6 z-10" id="char-select">
+        <div class="char-card active" onclick="selectChar('miko')" id="card-miko">
+            <div class="text-xs font-bold text-pink-500 uppercase">Easy (Pon)</div>
+            <div class="text-lg font-bold">櫻巫女</div>
+        </div>
+        <div class="char-card" onclick="selectChar('ui')" id="card-ui">
+            <div class="text-xs font-bold text-blue-400 uppercase">Normal</div>
+            <div class="text-lg font-bold">時雨羽衣</div>
+        </div>
+        <div class="char-card" onclick="selectChar('suisei')" id="card-suisei">
+            <div class="text-xs font-bold text-indigo-400 uppercase">Lunatic</div>
+            <div class="text-lg font-bold">星街彗星</div>
+        </div>
+    </div>
+
+    <div class="status-bar">
+        <div class="text-sm">PLAYER: <span class="text-blue-400 font-bold">黑棋</span></div>
+        <div id="status-text" class="text-lg text-yellow-400 font-bold">你的回合</div>
+        <div class="text-sm">CPU: <span id="opponent-name" class="text-pink-500 font-bold">櫻巫女</span></div>
+    </div>
+
+    <div class="board-container">
+        <div class="board-wrapper" id="board-wrapper">
+            <div class="board" id="visual-grid"></div>
+            <div class="click-layer" id="click-layer"></div>
+        </div>
+    </div>
+
+    <button class="mt-8 bg-indigo-600 hover:bg-indigo-500 text-white px-10 py-3 rounded-full font-black tracking-widest transition-all shadow-lg active:scale-95 z-10" onclick="resetGame()">重新開始</button>
+
+    <div id="modal">
+        <div class="modal-content">
+            <div id="modal-emoji-header" class="text-6xl mb-4"></div>
+            <h2 id="modal-title" class="text-3xl font-black mb-4 text-white"></h2>
+            <p id="modal-quote" class="text-xl italic mb-8 text-yellow-400"></p>
+            <button class="bg-yellow-500 text-black px-12 py-3 rounded-full font-black text-lg hover:bg-yellow-400 transition-colors" onclick="resetGame()">再戰一場</button>
+        </div>
+    </div>
+
+    <script>
+        const SIZE = 15;
+        let board = Array(SIZE).fill().map(() => Array(SIZE).fill(null));
+        let gameActive = true;
+        let difficulty = 'miko';
+        let moveCount = 0;
+        let currentRotation = 0;
+        let bgInterval = null;
+
+        const CHAR_DATA = {
+            miko: { 
+                name: '櫻巫女', color: 'text-pink-500', ghostColor: '#ffb7c5', aggro: 0.3, errorRate: 0.4, emoji: '🌸', bg: 'bg-miko',
+                quote: "櫻巫女：捏！！！！！再來一次！不算不算！", speed: 0.6
+            },
+            ui: { 
+                name: '時雨羽衣', color: 'text-blue-400', ghostColor: '#add8e6', aggro: 0.85, errorRate: 0.05, emoji: '🌂', bg: 'bg-ui',
+                quote: "羽衣：哎呀~失敗了呀~", speed: 0.5
+            },
+            suisei: { 
+                name: '星街彗星', color: 'text-indigo-400', ghostColor: '#6366f1', aggro: 1.7, errorRate: 0.0, emoji: '⭐', bg: 'bg-suisei',
+                quote: "星街：蛤？殺Ｏ你喔...", speed: 0.3 
+            }
+        };
+
+        function selectChar(id) {
+            if (!gameActive && !isBoardEmpty()) return;
+            difficulty = id;
+            document.querySelectorAll('.char-card').forEach(c => c.classList.remove('active'));
+            document.getElementById(`card-${id}`).classList.add('active');
+            document.getElementById('opponent-name').innerText = CHAR_DATA[id].name;
+            document.getElementById('opponent-name').className = CHAR_DATA[id].color + ' font-bold';
+            document.body.className = CHAR_DATA[id].bg;
+            updateBackgroundEffects();
+            resetGame();
+        }
+
+        function updateBackgroundEffects() {
+            const container = document.getElementById('bg-effects');
+            container.innerHTML = '';
+            if (bgInterval) clearInterval(bgInterval);
+
+            if (difficulty === 'miko') {
+                for (let i = 0; i < 20; i++) createPetal();
+                bgInterval = setInterval(createPetal, 1500);
+            } else if (difficulty === 'ui') {
+                for (let i = 0; i < 60; i++) {
+                    const rain = document.createElement('div');
+                    rain.className = 'rain';
+                    rain.style.left = Math.random() * 100 + 'vw';
+                    rain.style.top = Math.random() * -100 + 'vh';
+                    rain.style.animationDuration = (Math.random() * 0.4 + 0.3) + 's';
+                    container.appendChild(rain);
+                }
+            } else if (difficulty === 'suisei') {
+                for (let i = 0; i < 100; i++) {
+                    const star = document.createElement('div');
+                    star.className = 'star';
+                    const size = Math.random() * 3 + 'px';
+                    star.style.width = size; star.style.height = size;
+                    star.style.left = Math.random() * 100 + 'vw';
+                    star.style.top = Math.random() * 100 + 'vh';
+                    star.style.setProperty('--d', (Math.random() * 3 + 2) + 's');
+                    container.appendChild(star);
+                }
+                bgInterval = setInterval(() => {
+                    const s = document.createElement('div');
+                    s.className = 'shooting-star';
+                    s.style.top = Math.random() * 40 + 'vh'; s.style.left = Math.random() * 100 + 'vw';
+                    container.appendChild(s);
+                    setTimeout(() => s.remove(), 2500);
+                }, 4000);
+            }
+        }
+
+        function createPetal() {
+            const container = document.getElementById('bg-effects');
+            if (difficulty !== 'miko' && !container.dataset.winEffect) return;
+            const p = document.createElement('div');
+            p.className = 'petal';
+            const size = (Math.random() * 10 + 10) + 'px';
+            p.style.width = size; p.style.height = size;
+            p.style.left = Math.random() * 100 + 'vw';
+            p.style.animationDuration = (Math.random() * 5 + 5) + 's';
+            container.appendChild(p);
+            setTimeout(() => p.remove(), 10000);
+        }
+
+        function spawnEmojiEffect(x, y, emoji) {
+            for (let i = 0; i < 8; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'emoji-particle';
+                particle.innerText = emoji;
+                const tx = (Math.random() - 0.5) * 120;
+                const ty = (Math.random() - 0.5) * 120;
+                particle.style.setProperty('--tx', `${tx}px`);
+                particle.style.setProperty('--ty', `${ty}px`);
+                particle.style.left = `${x}px`; particle.style.top = `${y}px`;
+                document.body.appendChild(particle);
+                setTimeout(() => particle.remove(), 800);
+            }
+        }
+
+        /* ---------------- 煙火生成函數 ---------------- */
+        function createFirework(centerX, centerY) {
+            const colors = ['#ff4757', '#2ed573', '#1e90ff', '#ffa502', '#ffffff', '#e056fd'];
+            const particles = 30;
+            for (let i = 0; i < particles; i++) {
+                const f = document.createElement('div');
+                f.className = 'firework';
+                f.style.left = centerX + 'px';
+                f.style.top = centerY + 'px';
+                f.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                
+                const angle = Math.random() * Math.PI * 2;
+                const dist = 50 + Math.random() * 200;
+                const tx = Math.cos(angle) * dist;
+                const ty = Math.sin(angle) * dist;
+                
+                f.style.setProperty('--tx', `${tx}px`);
+                f.style.setProperty('--ty', `${ty}px`);
+                
+                document.body.appendChild(f);
+                setTimeout(() => f.remove(), 1500);
+            }
+        }
+
+        function triggerVictoryFireworks() {
+            let count = 0;
+            const timer = setInterval(() => {
+                const x = Math.random() * window.innerWidth;
+                const y = Math.random() * (window.innerHeight * 0.7);
+                createFirework(x, y);
+                count++;
+                if (count >= 10) clearInterval(timer);
+            }, 300);
+        }
+
+        function init() {
+            const visualGrid = document.getElementById('visual-grid');
+            const clickLayer = document.getElementById('click-layer');
+            visualGrid.innerHTML = '';
+            clickLayer.innerHTML = '';
+            for (let i = 0; i < 14 * 14; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'grid-cell';
+                visualGrid.appendChild(cell);
+            }
+            for (let r = 0; r < SIZE; r++) {
+                for (let c = 0; c < SIZE; c++) {
+                    const inter = document.createElement('div');
+                    inter.className = 'intersection';
+                    inter.style.top = (r * 28) + 'px'; inter.style.left = (c * 28) + 'px';
+                    inter.dataset.r = r; inter.dataset.c = c;
+                    inter.onclick = () => playerMove(r, c);
+                    clickLayer.appendChild(inter);
+                }
+            }
+            document.getElementById('status-text').innerText = "你的回合";
+        }
+
+        async function playerMove(r, c) {
+            if (!gameActive || board[r][c]) return;
+            makeMove(r, c, 'black');
+            moveCount++;
+            if (checkWin(r, c, 'black')) return end(true);
+            gameActive = false;
+            document.getElementById('status-text').innerText = `${CHAR_DATA[difficulty].name} 思考中...`;
+            await aiThinkingSequence();
+        }
+
+        async function aiThinkingSequence() {
+            const bestMove = getBestMove();
+            const config = CHAR_DATA[difficulty];
+            const ghost = document.createElement('div');
+            ghost.className = 'ghost-piece';
+            ghost.style.color = config.ghostColor;
+            ghost.style.setProperty('--speed', config.speed + 's');
+            updateGhostPos(ghost, 7, 7);
+            document.getElementById('click-layer').appendChild(ghost);
+
+            for(let i=0; i<3; i++) {
+                await new Promise(r => setTimeout(r, config.speed * 1000));
+                let randomR = Math.max(0, Math.min(14, bestMove.r + Math.floor(Math.random()*5-2)));
+                let randomC = Math.max(0, Math.min(14, bestMove.c + Math.floor(Math.random()*5-2)));
+                updateGhostPos(ghost, randomR, randomC);
+            }
+
+            await new Promise(r => setTimeout(r, config.speed * 1000));
+            updateGhostPos(ghost, bestMove.r, bestMove.c);
+            await new Promise(r => setTimeout(r, 300));
+            ghost.remove();
+
+            const cell = document.querySelector(`.intersection[data-r='${bestMove.r}'][data-c='${bestMove.c}']`);
+            const rect = cell.getBoundingClientRect();
+            makeMove(bestMove.r, bestMove.c, 'white');
+            spawnEmojiEffect(rect.left + rect.width / 2, rect.top + rect.height / 2, config.emoji);
+
+            if (checkWin(bestMove.r, bestMove.c, 'white')) return end(false);
+            if (difficulty === 'suisei' && moveCount % 3 === 0) rotateBoard();
+            document.getElementById('status-text').innerText = "你的回合";
+            gameActive = true;
+        }
+
+        function updateGhostPos(el, r, c) {
+            el.style.top = (r * 28) + 'px'; el.style.left = (c * 28) + 'px';
+        }
+
+        function rotateBoard() {
+            const rotations = [90, 180, 270];
+            currentRotation += rotations[Math.floor(Math.random() * rotations.length)];
+            document.getElementById('board-wrapper').style.transform = `rotate(${currentRotation}deg)`;
+            document.getElementById('status-text').innerText = "棋盤旋轉了！";
+        }
+
+        function makeMove(r, c, color) {
+            board[r][c] = color;
+            const cell = document.querySelector(`.intersection[data-r='${r}'][data-c='${c}']`);
+            const oldMarker = document.querySelector('.last-move-marker');
+            if (oldMarker) oldMarker.remove();
+            const piece = document.createElement('div');
+            piece.className = `piece ${color}`;
+            const marker = document.createElement('div');
+            marker.className = 'last-move-marker';
+            piece.appendChild(marker);
+            cell.appendChild(piece);
+        }
+
+        function getBestMove() {
+            let bestScore = -1; let moves = [];
+            const config = CHAR_DATA[difficulty];
+            if (Math.random() < config.errorRate) return findRandomMoveAroundCenter();
+
+            for (let r = 0; r < SIZE; r++) {
+                for (let c = 0; c < SIZE; c++) {
+                    if (board[r][c]) continue;
+                    let score = (evaluatePoint(r, c, 'white') * config.aggro) + evaluatePoint(r, c, 'black');
+                    score += (7 - Math.abs(r - 7)) * 0.2 + (7 - Math.abs(c - 7)) * 0.2;
+                    if (score > bestScore) { bestScore = score; moves = [{r, c}]; }
+                    else if (score === bestScore) moves.push({r, c});
+                }
+            }
+            return moves[Math.floor(Math.random() * moves.length)];
+        }
+
+        function evaluatePoint(r, c, color) {
+            let score = 0;
+            const dirs = [[1,0], [0,1], [1,1], [1,-1]];
+            for (let [dr, dc] of dirs) score += getLineScore(r, c, dr, dc, color);
+            return score;
+        }
+
+        function getLineScore(r, c, dr, dc, color) {
+            let line = "";
+            for (let i = -4; i <= 4; i++) {
+                let nr = r + i * dr, nc = c + i * dc;
+                if (i === 0) line += "M";
+                else if (nr < 0 || nr >= SIZE || nc < 0 || nc >= SIZE) line += "X";
+                else if (board[nr][nc] === color) line += "M";
+                else if (board[nr][nc] === null) line += "E";
+                else line += "X";
+            }
+            if (line.includes("MMMMM")) return 50000;  
+            if (line.includes("EMMMME")) return 10000; 
+            if (line.includes("EMMME")) return 3500;   
+            return line.includes("MMMM") ? 2000 : 0;
+        }
+
+        function findRandomMoveAroundCenter() {
+            let empties = [];
+            for(let r=0; r<SIZE; r++) for(let c=0; c<SIZE; c++) if(!board[r][c]) empties.push({r,c});
+            return empties.length > 0 ? empties[Math.floor(Math.random()*empties.length)] : {r:7, c:7};
+        }
+
+        function checkWin(r, c, color) {
+            const dirs = [[1,0], [0,1], [1,1], [1,-1]];
+            for (let [dr, dc] of dirs) {
+                let count = 1;
+                for (let i = 1; i < 5; i++) {
+                    let nr = r+dr*i, nc = c+dc*i;
+                    if (nr>=0 && nr<SIZE && nc>=0 && nc<SIZE && board[nr][nc]===color) count++; else break;
+                }
+                for (let i = 1; i < 5; i++) {
+                    let nr = r-dr*i, nc = c-dc*i;
+                    if (nr>=0 && nr<SIZE && nc>=0 && nc<SIZE && board[nr][nc]===color) count++; else break;
+                }
+                if (count >= 5) return true;
+            }
+            return false;
+        }
+
+        function end(playerWon) {
+            gameActive = false;
+            const config = CHAR_DATA[difficulty];
+            const modal = document.getElementById('modal');
+            const title = document.getElementById('modal-title');
+            const quote = document.getElementById('modal-quote');
+            const header = document.getElementById('modal-emoji-header');
+
+            if (playerWon) {
+                title.innerText = `你打爆了${config.name}！`;
+                quote.innerText = config.quote;
+                header.innerText = config.emoji;
+                
+                // 觸發煙火
+                triggerVictoryFireworks();
+
+                if (difficulty === 'miko') {
+                    document.getElementById('bg-effects').dataset.winEffect = "true";
+                    for(let i=0; i<30; i++) setTimeout(createPetal, i*100);
+                }
+            } else {
+                title.innerText = "你輸了";
+                quote.innerText = `${config.name}：哼哼~打贏我還早100年呢♪`;
+                header.innerText = "(×_×)";
+            }
+            modal.style.display = 'flex';
+        }
+
+        function isBoardEmpty() { return board.every(row => row.every(cell => cell === null)); }
+
+        function resetGame() {
+            board = Array(SIZE).fill().map(() => Array(SIZE).fill(null));
+            gameActive = true; moveCount = 0; currentRotation = 0;
+            document.getElementById('board-wrapper').style.transform = 'rotate(0deg)';
+            document.getElementById('modal').style.display = 'none';
+            document.getElementById('bg-effects').dataset.winEffect = "";
+            init();
+            updateBackgroundEffects();
+        }
+
+        window.onload = () => { init(); updateBackgroundEffects(); };
+    </script>
+</body>
+</html>
